@@ -8,6 +8,7 @@ import 'admin_candidates_screen.dart';
 import 'admin_results_screen.dart';
 import 'admin_profile_screen.dart';
 import 'admin_messages_screen.dart';
+import 'admin_notifications_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -256,6 +257,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Colors.purple,
               () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const AdminResultsScreen())),
+            ),
+            const SizedBox(height: 10),
+            _buildMenuCard(
+              Icons.notifications_active,
+              'Tuma Arifa (Push)',
+              'Tuma taarifa za papo hapo kwa simu',
+              Colors.pink,
+              () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AdminNotificationsScreen())),
             ),
             const SizedBox(height: 10),
             _buildMenuCard(

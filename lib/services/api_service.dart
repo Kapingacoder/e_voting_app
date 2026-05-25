@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -377,6 +378,32 @@ class ApiService {
       Uri.parse('$baseUrl/auth/forgot-password'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'admissionNumber': admissionNumber}),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<void> saveFCMToken(String fcmToken) async {
+    try {
+      final token = await getToken();
+      if (token == null) return;
+      final headers = await getHeaders();
+      await http.post(
+        Uri.parse('$baseUrl/auth/fcm-token'),
+        headers: headers,
+        body: jsonEncode({'fcmToken': fcmToken}),
+      );
+    } catch (e) {
+      debugPrint('Save FCM token error: $e');
+    }
+  }
+
+  static Future<Map<String, dynamic>> sendBroadcastNotification(
+      Map<String, String> data) async {
+    final headers = await getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/notifications/send'),
+      headers: headers,
+      body: jsonEncode(data),
     );
     return jsonDecode(response.body);
   }

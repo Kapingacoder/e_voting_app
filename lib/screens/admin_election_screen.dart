@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../widgets/election_countdown.dart';
 
 class AdminElectionScreen extends StatefulWidget {
   const AdminElectionScreen({super.key});
@@ -497,6 +498,13 @@ class _AdminElectionScreenState extends State<AdminElectionScreen> {
                                 ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        ElectionCountdown(
+                          startTime: _electionData?['startTime'],
+                          endTime: _electionData?['endTime'],
+                          isVotingOpen: _electionData?['votingOpen'] ?? false,
                         ),
                         const SizedBox(height: 16),
 

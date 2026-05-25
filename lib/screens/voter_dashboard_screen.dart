@@ -5,6 +5,7 @@ import 'login_screen.dart';
 import 'voting_screen.dart';
 import 'results_screen.dart';
 import 'profile_screen.dart';
+import '../widgets/election_countdown.dart';
 
 class VoterDashboardScreen extends StatefulWidget {
   const VoterDashboardScreen({super.key});
@@ -155,6 +156,15 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
               ),
             ),
             const SizedBox(height: 20),
+
+            ElectionCountdown(
+              startTime: _dashboardData?['election']?['startTime'] ??
+                         _dashboardData?['mostRecentElection']?['startTime'],
+              endTime: _dashboardData?['election']?['endTime'] ??
+                       _dashboardData?['mostRecentElection']?['endTime'],
+              isVotingOpen: electionActive,
+            ),
+            const SizedBox(height: 16),
 
             // Hali ya Uchaguzi
             Container(

@@ -1,10 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/voter_dashboard_screen.dart';
 import 'services/api_service.dart';
 
-void main() {
+// Local notifications instance
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+// Background message handler
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(
+    RemoteMessage message) async {
+  await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform);
+  await _showLocalNotification(message);
+}
+
+// Onyesha notification
+Future<void> _showLocalNotification(RemoteMessage message) async {
+  const AndroidNotificationDetails androidDetails =
+      AndroidNotificationDetails(
+    'e_voting_channel',
+    'E-Voting Notifications',
+    channelDescription: 'Arifa za mfumo wa E-Voting',
+    importance: Importance.max,
+    priority: Priority.high,
+    icon: '@mipmap/ic_launcher',
+  );
+
+  const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+  );
+
+  const NotificationDetails details = NotificationDetails(
+    android: androidDetails,
+    iOS: iosDetails,
+  );
+
+  await flutterLocalNotificationsPlugin.show(
+    0,
+    message.notification?.title ?? 'E-Voting',
+    message.notification?.body ?? '',
+    details,
+  );
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Setup background handler
+  FirebaseMessaging.onBackgroundMessage(
+      _firebaseMessagingBackgroundHandler);
+
+  // Initialize Local Notifications
+  const AndroidInitializationSettings androidSettings =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const DarwinInitializationSettings iosSettings =
+      DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+
+  const InitializationSettings initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(initSettings);
+
   runApp(const MyApp());
 }
 
@@ -40,17 +117,66 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    // Request notification permissions
+    await _requestNotificationPermissions();
+
+    // Get FCM Token
+    await _getFCMToken();
+
+    // Setup foreground notifications
+    _setupForegroundNotifications();
+
+    // Check login
+    await Future.delayed(const Duration(seconds: 2));
     _checkLogin();
   }
 
+  Future<void> _requestNotificationPermissions() async {
+    final messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  }
+
+  Future<void> _getFCMToken() async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        debugPrint('FCM Token: $token');
+        // Hifadhi token kwa backend
+        await ApiService.saveFCMToken(token);
+      }
+    } catch (e) {
+      debugPrint('FCM Token error: $e');
+    }
+  }
+
+  void _setupForegroundNotifications() {
+    // Foreground messages
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      _showLocalNotification(message);
+    });
+
+    // Notification tap handler
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint('Notification tapped: ${message.data}');
+    });
+  }
+
   Future<void> _checkLogin() async {
-    await Future.delayed(const Duration(seconds: 2));
     final token = await ApiService.getToken();
     if (!mounted) return;
     if (token != null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const VoterDashboardScreen()),
+        MaterialPageRoute(
+            builder: (_) => const VoterDashboardScreen()),
       );
     } else {
       Navigator.pushReplacement(
@@ -68,7 +194,8 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.how_to_vote, size: 80, color: Colors.white),
+            const Icon(Icons.how_to_vote,
+                size: 80, color: Colors.white),
             const SizedBox(height: 20),
             Text(
               'E-Voting',
