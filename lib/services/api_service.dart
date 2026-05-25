@@ -152,6 +152,24 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  static Future<Map<String, dynamic>> deleteAllVoters() async {
+    final headers = await getHeaders();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/voters/delete-all'),
+      headers: headers,
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> sendCredentialsToAll() async {
+    final headers = await getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/voters/send-credentials'),
+      headers: headers,
+    );
+    return jsonDecode(response.body);
+  }
+
   static Future<List<dynamic>> getAdminCandidates() async {
     final headers = await getHeaders();
     final response = await http.get(

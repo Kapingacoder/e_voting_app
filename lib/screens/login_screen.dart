@@ -141,27 +141,34 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       setDialogState(() => isLoading = true);
                       try {
+                        debugPrint('Sending forgot password for: ${admissionController.text.trim()}');
+
                         final result =
                             await ApiService.forgotPassword(
                                 admissionController.text.trim());
+
+                        debugPrint('Forgot password result: $result');
+
                         if (!mounted) return;
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(
                           content: Text(
-                            result['message'] ??
-                                'Password imetumwa kwa email yako!',
+                            result['message'] ?? result['error'] ?? 'Jibu halijulikana',
                             style: GoogleFonts.poppins(),
                           ),
-                          backgroundColor: Colors.green,
-                          duration: const Duration(seconds: 4),
+                          backgroundColor: result.containsKey('message') 
+                              ? Colors.green 
+                              : Colors.red,
+                          duration: const Duration(seconds: 5),
                         ));
                       } catch (e) {
+                        debugPrint('Forgot password error: $e');
                         setDialogState(() => isLoading = false);
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(
                           content: Text(
-                              'Imeshindwa. Jaribu tena.',
+                              'Imeshindwa: $e',
                               style: GoogleFonts.poppins()),
                           backgroundColor: Colors.red,
                         ));

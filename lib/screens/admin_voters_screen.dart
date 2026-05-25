@@ -117,6 +117,348 @@ class _AdminVotersScreenState extends State<AdminVotersScreen> {
     }
   }
 
+  Future<void> _deleteAllVoters() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning, color: Colors.red, size: 28),
+            const SizedBox(width: 8),
+            Text('Futa Wote!',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber,
+                      color: Colors.red.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Hatua hii itafuta wapiga kura WOTE ${_voters.length} na haiwezi kurudishwa!',
+                      style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.red.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('Una uhakika kabisa?',
+                style: GoogleFonts.poppins(fontSize: 14)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Hapana, Rudi',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.delete_forever),
+            label: Text('Ndiyo, Futa Wote!',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    _showLoadingDialog('Inafuta wapiga kura wote...');
+
+    try {
+      await ApiService.deleteAllVoters();
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Wapiga kura wote wamefutwa!',
+            style: GoogleFonts.poppins()),
+        backgroundColor: Colors.green,
+      ));
+      _loadVoters();
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Imeshindwa kufuta. Jaribu tena.',
+              style: GoogleFonts.poppins()),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
+  Future<void> _sendCredentialsToAll() async {
+    // Angalia kama wana email
+    final withEmail = _voters
+        .where((v) =>
+            v['email'] != null && v['email'].toString().isNotEmpty)
+        .length;
+    final withoutEmail = _voters.length - withEmail;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.email, color: Color(0xFF1565C0)),
+            const SizedBox(width: 8),
+            Text('Tuma Credentials',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Stats
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  _statRow(Icons.people,
+                      'Wapiga kura wote', '${_voters.length}',
+                      const Color(0xFF1565C0)),
+                  const Divider(height: 16),
+                  _statRow(Icons.email,
+                      'Wana email', '$withEmail',
+                      Colors.green),
+                  const SizedBox(height: 6),
+                  _statRow(Icons.email_outlined,
+                      'Hawana email', '$withoutEmail',
+                      Colors.orange),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      color: Colors.blue.shade700, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Email itakuwa na:\n'
+                      '• Username (Admission Number)\n'
+                      '• Password ya default\n'
+                      '• Maelekezo ya kuingia',
+                      style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.blue.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Ghairi', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.send),
+            label: Text('Tuma Emails $withEmail',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    _showLoadingDialog('Inatuma emails... Tafadhali subiri');
+
+    try {
+      final result = await ApiService.sendCredentialsToAll();
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      final sent = (result['sent'] ?? 0) as int;
+      final failed = result['failed'] != null
+          ? List<String>.from(result['failed'] as List)
+          : <String>[];
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
+          title: Text('Matokeo ya Kutuma',
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border:
+                      Border.all(color: Colors.green.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle,
+                        color: Colors.green, size: 36),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Text('$sent Emails Zimetumwa!',
+                            style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: Colors.green)),
+                        Text('Wapiga kura wamearifiwa',
+                            style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color:
+                                    Colors.green.shade700)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (failed.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: Colors.orange.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${failed.length} hawakupata email:',
+                        style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade700,
+                            fontSize: 13),
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 80,
+                        child: ListView.builder(
+                          itemCount: failed.length > 5
+                              ? 5
+                              : failed.length,
+                          itemBuilder: (context, index) =>
+                              Text(
+                            '• ${failed[index]}',
+                            style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color:
+                                    Colors.orange.shade700),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1565C0),
+                foregroundColor: Colors.white,
+              ),
+              child: Text('Sawa!',
+                  style: GoogleFonts.poppins()),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Imeshindwa kutuma emails.',
+              style: GoogleFonts.poppins()),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
+  Widget _statRow(IconData icon, String label, String value,
+      Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(label,
+                style: GoogleFonts.poppins(
+                    fontSize: 13, color: Colors.grey.shade700)),
+          ],
+        ),
+        Text(value,
+            style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: color)),
+      ],
+    );
+  }
+
   // ═══════════════════════════════
   // BULK IMPORT
   // ═══════════════════════════════
@@ -318,17 +660,21 @@ class _AdminVotersScreenState extends State<AdminVotersScreen> {
           .toList();
 
       // Angalia columns zilizopo
-      final fullNameIdx = _findColumnIndex(
-          headers, ['fullname', 'full_name', 'name', 'jina']);
-      final admissionIdx = _findColumnIndex(headers, [
-        'admissionnumber',
-        'admission_number',
-        'admission',
-        'adm',
-        'nambari'
+      final fullNameIdx = _findColumnIndex(headers, [
+        'fullname', 'full name', 'full_name', 'name',
+        'jina', 'jina kamili', 'jiina',
       ]);
-      final emailIdx = _findColumnIndex(
-          headers, ['email', 'barua', 'barua_pepe']);
+
+      final admissionIdx = _findColumnIndex(headers, [
+        'admissionnumber', 'admission number', 'admission_number',
+        'admission', 'adm', 'nambari',
+        'namba ya uandikishaji', 'namba', 'uandikishaji',
+        'reg', 'regno',
+      ]);
+
+      final emailIdx = _findColumnIndex(headers, [
+        'email', 'barua', 'barua_pepe', 'barua pepe', 'mail',
+      ]);
 
       if (fullNameIdx == -1 || admissionIdx == -1) continue;
 
@@ -365,67 +711,153 @@ class _AdminVotersScreenState extends State<AdminVotersScreen> {
     return voters;
   }
 
-  Future<List<Map<String, String>>> _parseCsv(
-      List<int> bytes) async {
-    final csvString = String.fromCharCodes(bytes);
-    final List<List<dynamic>> rows =
-        const CsvToListConverter().convert(csvString);
-
-    if (rows.isEmpty) return [];
-
+  Future<List<Map<String, String>>> _parseCsv(List<int> bytes) async {
     final List<Map<String, String>> voters = [];
 
-    // Headers kutoka row ya kwanza
-    final headers = rows[0]
-        .map((h) => h.toString().toLowerCase().trim())
-        .toList();
+    try {
+      // Soma file kama string
+      final csvString = String.fromCharCodes(bytes).trim();
 
-    final fullNameIdx = _findColumnIndex(
-        headers, ['fullname', 'full_name', 'name', 'jina']);
-    final admissionIdx = _findColumnIndex(headers, [
-      'admissionnumber',
-      'admission_number',
-      'admission',
-      'adm',
-      'nambari'
-    ]);
-    final emailIdx =
-        _findColumnIndex(headers, ['email', 'barua', 'barua_pepe']);
+      // Split kwa lines
+      final lines = csvString.split('\n');
+      if (lines.isEmpty) return [];
 
-    if (fullNameIdx == -1 || admissionIdx == -1) return [];
+      // Pata headers kutoka line ya kwanza
+      final headerLine = lines[0].trim().replaceAll('\r', '');
+      final headers = headerLine
+          .split(',')
+          .map((h) => h
+              .trim()
+              .toLowerCase()
+              .replaceAll(' ', '')
+              .replaceAll('_', '')
+              .replaceAll('-', '')
+              .replaceAll('"', ''))
+          .toList();
 
-    for (var i = 1; i < rows.length; i++) {
-      final row = rows[i];
-      if (row.isEmpty) continue;
+      // Debug — angalia headers
+      debugPrint('CSV Headers found: $headers');
 
-      final fullName =
-          row.length > fullNameIdx ? row[fullNameIdx].toString().trim() : '';
-      final admissionNumber = row.length > admissionIdx
-          ? row[admissionIdx].toString().trim()
-          : '';
+      // Pata index za columns
+      int fullNameIdx = -1;
+      int admissionIdx = -1;
+      int emailIdx = -1;
 
-      if (fullName.isEmpty || admissionNumber.isEmpty) continue;
-
-      final voter = {
-        'fullName': fullName,
-        'admissionNumber': admissionNumber,
-      };
-
-      if (emailIdx != -1 && emailIdx < row.length) {
-        voter['email'] = row[emailIdx].toString().trim();
+      for (var i = 0; i < headers.length; i++) {
+        final h = headers[i];
+        // Full Name
+        if (h.contains('full') ||
+            h.contains('name') ||
+            h.contains('jina') ||
+            h == 'fullname') {
+          fullNameIdx = i;
+        }
+        // Admission Number
+        if (h.contains('admission') ||
+            h.contains('adm') ||
+            h.contains('namba') ||
+            h.contains('reg') ||
+            (h.contains('number') && h.contains('adm'))) {
+          admissionIdx = i;
+        }
+        // Email
+        if (h.contains('email') || h.contains('mail') || h.contains('barua')) {
+          emailIdx = i;
+        }
       }
 
-      voters.add(voter);
-      if (voters.length >= 10000) break;
+      debugPrint(
+          'Indexes — name:$fullNameIdx adm:$admissionIdx email:$emailIdx');
+
+      if (fullNameIdx == -1 || admissionIdx == -1) {
+        debugPrint('Required columns not found!');
+        return [];
+      }
+
+      // Soma data rows
+      for (var i = 1; i < lines.length; i++) {
+        final line = lines[i].trim().replaceAll('\r', '');
+        if (line.isEmpty) continue;
+
+        // Split kwa comma — handle quoted values
+        final cells = _splitCsvLine(line);
+        if (cells.length <= admissionIdx) continue;
+
+        final fullName = fullNameIdx < cells.length
+            ? cells[fullNameIdx].trim().replaceAll('"', '')
+            : '';
+        final admissionNumber = admissionIdx < cells.length
+            ? cells[admissionIdx].trim().replaceAll('"', '')
+            : '';
+
+        if (fullName.isEmpty || admissionNumber.isEmpty) continue;
+
+        final voter = {
+          'fullName': fullName,
+          'admissionNumber': admissionNumber,
+        };
+
+        if (emailIdx != -1 && emailIdx < cells.length) {
+          voter['email'] = cells[emailIdx].trim().replaceAll('"', '');
+        }
+
+        voters.add(voter);
+        if (voters.length >= 10000) break;
+      }
+
+      debugPrint('Total voters parsed: ${voters.length}');
+    } catch (e) {
+      debugPrint('CSV Parse error: $e');
     }
 
     return voters;
   }
 
+  // Helper — Split CSV line vizuri
+  List<String> _splitCsvLine(String line) {
+    final cells = <String>[];
+    var current = StringBuffer();
+    var inQuotes = false;
+
+    for (var i = 0; i < line.length; i++) {
+      final char = line[i];
+      if (char == '"') {
+        inQuotes = !inQuotes;
+      } else if (char == ',' && !inQuotes) {
+        cells.add(current.toString());
+        current.clear();
+      } else {
+        current.write(char);
+      }
+    }
+    cells.add(current.toString());
+    return cells;
+  }
+
   int _findColumnIndex(List<String> headers, List<String> possible) {
-    for (var p in possible) {
-      final idx = headers.indexOf(p);
-      if (idx != -1) return idx;
+    for (var i = 0; i < headers.length; i++) {
+      // Safisha header — lowercase, ondoa spaces na underscores
+      final header = headers[i]
+          .toLowerCase()
+          .trim()
+          .replaceAll(' ', '')
+          .replaceAll('_', '')
+          .replaceAll('-', '');
+
+      for (var p in possible) {
+        final check = p
+            .toLowerCase()
+            .trim()
+            .replaceAll(' ', '')
+            .replaceAll('_', '')
+            .replaceAll('-', '');
+
+        if (header == check ||
+            header.contains(check) ||
+            check.contains(header)) {
+          return i;
+        }
+      }
     }
     return -1;
   }
@@ -584,33 +1016,21 @@ class _AdminVotersScreenState extends State<AdminVotersScreen> {
       List<Map<String, String>> voters) async {
     _showLoadingDialog(
         'Inaingiza wapiga kura ${voters.length}...');
-
+ 
     try {
-      // Import kwa batch za 100 kwa kasi
-      int totalImported = 0;
-      List<String> allErrors = [];
-      const batchSize = 100;
-
-      for (var i = 0; i < voters.length; i += batchSize) {
-        final batch = voters.sublist(
-          i,
-          i + batchSize > voters.length ? voters.length : i + batchSize,
-        );
-
-        final result = await ApiService.bulkImportVoters(batch);
-        totalImported += (result['imported'] ?? 0) as int;
-
-        if (result['errors'] != null) {
-          allErrors.addAll(
-              List<String>.from(result['errors'] as List));
-        }
-      }
-
+      // Tuma WOTE mara moja — haraka zaidi!
+      final result = await ApiService.bulkImportVoters(voters);
+      
       if (!mounted) return;
       Navigator.pop(context); // Funga loading
-
+ 
+      final imported = (result['imported'] ?? 0) as int;
+      final errors = result['errors'] != null
+          ? List<String>.from(result['errors'] as List)
+          : <String>[];
+ 
       // Onyesha matokeo
-      _showImportResultDialog(totalImported, allErrors);
+      _showImportResultDialog(imported, errors);
       _loadVoters();
     } catch (e) {
       if (mounted) {
@@ -887,6 +1307,16 @@ class _AdminVotersScreenState extends State<AdminVotersScreen> {
             icon: const Icon(Icons.upload_file, color: Colors.white),
             tooltip: 'Bulk Import',
             onPressed: _showBulkImportDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.mark_email_read, color: Colors.white),
+            tooltip: 'Tuma Credentials kwa Wote',
+            onPressed: _voters.isEmpty ? null : _sendCredentialsToAll,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep, color: Colors.white),
+            tooltip: 'Futa Wote',
+            onPressed: _voters.isEmpty ? null : _deleteAllVoters,
           ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
