@@ -39,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await ApiService.saveUserInfo(
           result['fullName'] ?? '',
           result['role'] ?? '',
+          _usernameController.text.trim(),
         );
         if (!mounted) return;
         final role = result['role'] ?? '';
@@ -60,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       setState(() {
         _errorMessage =
-            'Hakuna connection na server. Angalia internet yako.';
+            'Imeshindwa kuingia. Jaribu tena au angalia data yako.';
       });
     } finally {
       setState(() => _isLoading = false);

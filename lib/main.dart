@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -54,6 +55,9 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize local database
+  await ApiService.initialize();
 
   // Initialize Firebase
   await Firebase.initializeApp(
@@ -146,11 +150,18 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _getFCMToken() async {
     try {
+      if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        debugPrint('APNS Token: $apnsToken');
+      }
+
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null) {
         debugPrint('FCM Token: $token');
-        // Hifadhi token kwa backend
         await ApiService.saveFCMToken(token);
+      } else {
+        debugPrint('FCM Token not available yet.');
       }
     } catch (e) {
       debugPrint('FCM Token error: $e');
