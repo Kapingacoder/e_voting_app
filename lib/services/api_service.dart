@@ -6,6 +6,7 @@ import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../web/reset_password_helper.dart';
 
 class ApiService {
   static const _storage = FlutterSecureStorage();
@@ -799,27 +800,34 @@ class ApiService {
       };
     }
 
-    // Tuma email yenye security question
+    // Generate secure reset link
     final fullName = voter['fullName']?.toString() ?? 'Mpiga Kura';
     final username = voter['username']?.toString() ?? admissionNumber;
-    final subject = 'Password Recovery - Security Question';
+    final resetLink = ResetPasswordHelper.generateResetLink(
+      admissionNumber,
+      question,
+      email,
+      fullName,
+    );
+
+    // Tuma email yenye reset link
+    final subject = 'Password Recovery - Reset Your Password';
     final body = '''
 Habari $fullName,
 
 Umetuma ombi la kubadili password yako.
 
-Tafadhali jibu swali hili la usalama ili kukamilisha mchakato:
+Bofya link hii chini ili kubadili password yako:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SWALI LA USALAMA:
-$question
+$resetLink
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Tafadhali REPLY email hii na kuandika jibu lako.
+Utaulizwa kujibu swali lako la usalama, kisha password mpya itatumwa kwa email yako automatic.
 
-Barada ya kujibu jibu lako, tutakutumia password yako mpya.
+LINK HII NI VALID KWA SAA 1 TU.
 
-KAMBUSHO: Jibu lako lazima lifanane kabisa na uliloweka wakati wa kuandikisha.
+Kama link haifanyi kazi, copy na paste kwenye browser yako.
 
 Kama hukuomba kubadili password, puuza email hii.
 
@@ -841,8 +849,9 @@ E-Voting System Team
       'id': DateTime.now().millisecondsSinceEpoch,
       'email': email,
       'username': username,
-      'type': 'security_question',
+      'type': 'reset_link',
       'question': question,
+      'resetLink': resetLink,
       'subject': subject,
       'body': body,
       'sentAt': DateTime.now().toIso8601String(),
@@ -854,7 +863,7 @@ E-Voting System Team
     if (sent) {
       return {
         'success': true,
-        'message': 'Security question imetumwa kwa email yako: $email. Tafadhali angalia inbox yako.'
+        'message': 'Password reset link imetumwa kwa email yako: $email. Angalia inbox yako na bofya link.'
       };
     } else {
       return {

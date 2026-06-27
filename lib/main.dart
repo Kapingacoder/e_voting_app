@@ -10,6 +10,7 @@ import 'screens/setup_account_security_screen.dart';
 import 'screens/voter_dashboard_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'services/api_service.dart';
+import 'web/reset_password_page.dart';
 
 // Local notifications instance
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -108,6 +109,17 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const SplashScreen(),
+      onGenerateRoute: (settings) {
+        // Handle web routes for password reset
+        if (settings.name == '/reset' || settings.name?.startsWith('/reset') == true) {
+          final uri = Uri.parse(settings.name ?? '');
+          final encodedData = uri.queryParameters['data'];
+          return MaterialPageRoute(
+            builder: (_) => ResetPasswordWebPage(encodedData: encodedData),
+          );
+        }
+        return null;
+      },
     );
   }
 }
