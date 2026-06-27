@@ -9,6 +9,7 @@ import 'admin_results_screen.dart';
 import 'admin_profile_screen.dart';
 import 'admin_messages_screen.dart';
 import 'admin_notifications_screen.dart';
+import 'admin_forgot_password_requests_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -281,6 +282,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _loadUnreadCount();
               },
               badge: _unreadMessages > 0 ? _unreadMessages : null,
+            ),
+            const SizedBox(height: 10),
+            _buildMenuCard(
+              Icons.lock_reset,
+              'Password Reset Requests',
+              'Angalia na jibu maombi ya kubadili password',
+              Colors.deepOrange,
+              () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AdminForgotPasswordRequestsScreen())),
             ),
             const SizedBox(height: 30),
 

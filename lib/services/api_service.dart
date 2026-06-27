@@ -798,51 +798,143 @@ class ApiService {
         'error': 'Akaunti bado haijalqebisha swali la usalama. Tafadhali wasiliana na admin.'
       };
     }
-    return {'question': question};
+
+    // Tuma email yenye security question
+    final fullName = voter['fullName']?.toString() ?? 'Mpiga Kura';
+    final username = voter['username']?.toString() ?? admissionNumber;
+    final subject = 'Password Recovery - Security Question';
+    final body = '''
+Habari $fullName,
+
+Umetuma ombi la kubadili password yako.
+
+Tafadhali jibu swali hili la usalama ili kukamilisha mchakato:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SWALI LA USALAMA:
+$question
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tafadhali REPLY email hii na kuandika jibu lako.
+
+Barada ya kujibu jibu lako, tutakutumia password yako mpya.
+
+KAMBUSHO: Jibu lako lazima lifanane kabisa na uliloweka wakati wa kuandikisha.
+
+Kama hukuomba kubadili password, puuza email hii.
+
+Asante,
+E-Voting System Team
+''';
+
+    var sent = false;
+    String? error;
+    try {
+      sent = await _trySendEmail(email, subject, body);
+    } catch (e) {
+      error = e.toString();
+    }
+
+    // Save email record
+    final forgotPasswordEmails = _readList('forgotPasswordEmails');
+    forgotPasswordEmails.add({
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'email': email,
+      'username': username,
+      'type': 'security_question',
+      'question': question,
+      'subject': subject,
+      'body': body,
+      'sentAt': DateTime.now().toIso8601String(),
+      'sent': sent,
+      if (error != null) 'error': error,
+    });
+    await _writeList('forgotPasswordEmails', forgotPasswordEmails);
+
+    if (sent) {
+      return {
+        'success': true,
+        'message': 'Security question imetumwa kwa email yako: $email. Tafadhali angalia inbox yako.'
+      };
+    } else {
+      return {
+        'error': 'Email haikuweza kutumwa. SMTP haijawekwa au kuna tatizo. Wasiliana na admin.'
+      };
+    }
   }
 
   static Future<Map<String, dynamic>> resetPasswordWithSecurityAnswer(
       String admissionNumber,
-      String answer,
-      String newPassword) async {
+      String answer) async {
     await _ensureInitialized();
     final voters = _getVoters();
-    var changed = false;
-    Map<String, dynamic> updatedVoter = {};
-    final updated = voters.map((voter) {
+    Map<String, dynamic>? matchedVoter;
+    
+    for (final voter in voters) {
       if (voter['admissionNumber'] == admissionNumber ||
           voter['username'] == admissionNumber) {
         final answerHash = voter['securityAnswerHash']?.toString().trim() ?? '';
-        if (answerHash.isEmpty || answerHash != _hashText(answer.toLowerCase())) {
-          return voter;
+        if (answerHash.isNotEmpty && answerHash == _hashText(answer.toLowerCase())) {
+          matchedVoter = voter;
+          break;
         }
-        changed = true;
-        updatedVoter = {
+      }
+    }
+
+    if (matchedVoter == null) {
+      return {'error': 'Jibu la swali la usalama si sahihi au admission si halali.'};
+    }
+
+    // Generate password mpya automatically
+    final fullName = matchedVoter['fullName']?.toString() ?? '';
+    final newPassword = _defaultPasswordFor(fullName);
+
+    // Update voter password
+    final updated = voters.map((voter) {
+      if (voter['id'] == matchedVoter!['id']) {
+        return {
           ...voter,
           'password': newPassword,
           'passwordHash': _hashText(newPassword),
           'isFirstLogin': false,
           'forcePasswordChange': false,
         };
-        return updatedVoter;
       }
       return voter;
     }).toList();
 
-    if (!changed) {
-      return {'error': 'Jibu la swali la usalama si sahihi au admission si halali.'};
-    }
-
     await _setVoters(updated);
 
-    final email = updatedVoter['email']?.toString().trim();
+    // Tuma email na password mpya
+    final email = matchedVoter['email']?.toString().trim();
     final resetEmails = _readList('forgotPasswordEmails');
     if (email != null && email.isNotEmpty) {
-      final subject = 'Uthibitisho wa Reset Password';
-      final body = 'Habari ${updatedVoter['fullName'] ?? updatedVoter['username'] ?? ''},\n\n'
-          'Password yako imebadilishwa kwa mafanikio. Tumia password mpya ifuatayo ili kuingia:\n'
-          '$newPassword\n\n'
-          'Tafadhali usahau kuchagua swali la usalama na jibu thabiti.\n\nAsante.';
+      final subject = 'Password Yako Mpya - E-Voting System';
+      final body = '''
+Habari ${matchedVoter['fullName'] ?? matchedVoter['username'] ?? ''},
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UMEFANIKIWA KUBADILI PASSWORD!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Umejibu swali la usalama kwa usahihi.
+
+Hii ndiyo credentials zako mpya za kuingia:
+
+Username: ${matchedVoter['username'] ?? admissionNumber}
+Password: $newPassword
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tafadhali:
+1. Ingia kwa kutumia password hii mpya
+2. Kumbuka kuhifadhi password yako kwa usalama
+
+Kama hukuomba kubadili password, tafadhali wasiliana na admin MARA MOJA.
+
+Asante,
+E-Voting System Team
+''';
       final id = DateTime.now().millisecondsSinceEpoch;
       var sent = false;
       String? error;
@@ -854,8 +946,9 @@ class ApiService {
       final resetEmail = {
         'id': id,
         'email': email,
-        'username': updatedVoter['username']?.toString() ?? admissionNumber,
+        'username': matchedVoter['username']?.toString() ?? admissionNumber,
         'newPassword': newPassword,
+        'type': 'password_reset_success',
         'subject': subject,
         'body': body,
         'sentAt': DateTime.now().toIso8601String(),
@@ -867,14 +960,15 @@ class ApiService {
       resetEmails.add(resetEmail);
       await _writeList('forgotPasswordEmails', resetEmails);
       return {
+        'success': true,
         'message': sent
-            ? 'Password imebadilishwa. Barua pepe ya uthibitisho imetumwa kwa email yako.'
-            : 'Password imebadilishwa. Barua pepe haikutumwa kwa sababu SMTP haijawekwa au ilikuwa na error.',
+            ? 'Password imebadilishwa! Angalia email yako ($email) kupata password mpya.'
+            : 'Password imebadilishwa lakini email haikutumwa. Wasiliana na admin kupata password mpya.',
         'emailSent': sent,
       };
     }
 
-    return {'message': 'Password imebadilishwa.'};
+    return {'success': true, 'message': 'Password imebadilishwa.'};
   }
 
   static Future<bool> isCurrentVoterSecuritySetupRequired() async {

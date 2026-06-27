@@ -105,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Weka admission number yako — password itumwe kwa email yako.',
+                        'Weka admission number yako. Tutakutumia security question kwenye email yako.',
                         style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: Colors.blue.shade700),
@@ -149,170 +149,35 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       setDialogState(() => isLoading = true);
                       try {
-                        debugPrint('Requesting forgot password question for: ${admissionController.text.trim()}');
-
                         final result = await ApiService.forgotPassword(
                             admissionController.text.trim());
 
-                        debugPrint('Forgot password result: $result');
-
                         if (!ctx.mounted) return;
-                        setDialogState(() => isLoading = false);
-                        if (result.containsKey('question')) {
-                          Navigator.pop(ctx);
-                          _showForgotPasswordAnswerDialog(
-                            admissionController.text.trim(),
-                            result['question']?.toString() ?? '',
-                          );
-                        } else {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(ctx)
+                        Navigator.pop(ctx);
+                        
+                        if (result.containsKey('success') && result['success'] == true) {
+                          ScaffoldMessenger.of(context)
                               .showSnackBar(SnackBar(
                             content: Text(
-                              result['error'] ?? 'Haikuweza kupata swali la usalama.',
+                              result['message'] ?? 'Security question imetumwa kwa email yako.',
+                              style: GoogleFonts.poppins(),
+                            ),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 5),
+                          ));
+                        } else {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(
+                            content: Text(
+                              result['error'] ?? 'Haikuweza kutuma email.',
                               style: GoogleFonts.poppins(),
                             ),
                             backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 5),
                           ));
                         }
                       } catch (e) {
-                        debugPrint('Forgot password error: $e');
-                        setDialogState(() => isLoading = false);
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(
-                          content: Text(
-                              'Imeshindwa: $e',
-                              style: GoogleFonts.poppins()),
-                          backgroundColor: Colors.red,
-                        ));
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                foregroundColor: Colors.white,
-              ),
-              child: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : Text('Tuma Password',
-                      style: GoogleFonts.poppins()),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showForgotPasswordAnswerDialog(String admissionNumber, String question) {
-    final answerController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    bool isLoading = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
-          title: Text('Jibu Swali la Usalama',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(question, style: GoogleFonts.poppins()),
-              const SizedBox(height: 12),
-              TextField(
-                controller: answerController,
-                decoration: InputDecoration(
-                  labelText: 'Jibu la Swali la Usalama',
-                  prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: newPasswordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Password Mpya',
-                  prefixIcon: const Icon(Icons.vpn_key, size: 20),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: confirmPasswordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Thibitisha Password Mpya',
-                  prefixIcon: const Icon(Icons.check, size: 20),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Ghairi', style: GoogleFonts.poppins()),
-            ),
-            ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      if (answerController.text.isEmpty ||
-                          newPasswordController.text.isEmpty ||
-                          confirmPasswordController.text.isEmpty) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(
-                          content: Text(
-                              'Jaza jibu na password mpya.',
-                              style: GoogleFonts.poppins()),
-                          backgroundColor: Colors.orange,
-                        ));
-                        return;
-                      }
-                      if (newPasswordController.text.trim() !=
-                          confirmPasswordController.text.trim()) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(
-                          content: Text(
-                              'Password mpya hazifanani.',
-                              style: GoogleFonts.poppins()),
-                          backgroundColor: Colors.orange,
-                        ));
-                        return;
-                      }
-                      setDialogState(() => isLoading = true);
-                      try {
-                        final result =
-                            await ApiService.resetPasswordWithSecurityAnswer(
-                          admissionNumber,
-                          answerController.text.trim(),
-                          newPasswordController.text.trim(),
-                        );
                         if (!ctx.mounted) return;
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(ctx)
-                            .showSnackBar(SnackBar(
-                          content: Text(
-                            result['message'] ?? 'Password imebadilishwa.',
-                            style: GoogleFonts.poppins(),
-                          ),
-                          backgroundColor: result.containsKey('message')
-                              ? Colors.green
-                              : Colors.red,
-                          duration: const Duration(seconds: 5),
-                        ));
-                      } catch (e) {
-                        setDialogState(() => isLoading = false);
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(
                           content: Text(
@@ -332,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 20,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
-                  : Text('Badilisha Password',
+                  : Text('Tuma Email',
                       style: GoogleFonts.poppins()),
             ),
           ],
@@ -340,6 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
 
   void _showSupportMessageDialog() {
     final admissionController = TextEditingController();

@@ -28,8 +28,8 @@ class _AdminSmtpScreenState extends State<AdminSmtpScreen> {
     setState(() {
       _hostCtrl.text = cfg['host']?.toString() ?? 'smtp.gmail.com';
       _portCtrl.text = cfg['port']?.toString() ?? '587';
-      _usernameCtrl.text = cfg['username']?.toString() ?? '';
-      _fromCtrl.text = cfg['from']?.toString() ?? cfg['username']?.toString() ?? '';
+      _usernameCtrl.text = cfg['username']?.toString() ?? 'gisbertkapinga003@gmail.com';
+      _fromCtrl.text = cfg['from']?.toString() ?? cfg['username']?.toString() ?? 'gisbertkapinga003@gmail.com';
       _useSSL = cfg['ssl'] == true || cfg['useSSL'] == true;
     });
   }
@@ -97,10 +97,13 @@ class _AdminSmtpScreenState extends State<AdminSmtpScreen> {
                   setState(() {
                     _hostCtrl.text = 'smtp.gmail.com';
                     _portCtrl.text = '587';
+                    _usernameCtrl.text = 'gisbertkapinga003@gmail.com';
+                    _fromCtrl.text = 'gisbertkapinga003@gmail.com';
+                    _passwordCtrl.text = 'bcsasatfhwekzosa';
                     _useSSL = false;
                   });
                 },
-                child: const Text('Use Gmail SMTP defaults'),
+                child: const Text('Use Default Gmail SMTP'),
               ),
               SwitchListTile(
                 title: const Text('Use SSL'),
