@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'admin_smtp_screen.dart';
 
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({super.key});
@@ -536,6 +537,17 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                 Icons.lock_outline,
                 Colors.orange,
                 _showChangePasswordDialog,
+                outlined: true,
+              ),
+              const SizedBox(height: 10),
+              _actionButton(
+                'SMTP Settings (Email)',
+                Icons.email_outlined,
+                Colors.purple,
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminSmtpScreen()),
+                ),
                 outlined: true,
               ),
               const SizedBox(height: 10),
