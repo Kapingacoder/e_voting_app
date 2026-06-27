@@ -221,20 +221,22 @@ class _VotingScreenState extends State<VotingScreen> {
               itemCount: widget.candidates.length,
               itemBuilder: (context, index) {
                 final candidate = widget.candidates[index];
-                final candidateId = candidate['id'] as int? ?? 
-                                    candidate['ticketId'] as int?;
+                final positionType = candidate['positionType']?.toString() ?? 'Ticket';
+                final candidateId = candidate['id'] as int? ?? candidate['ticketId'] as int?;
                 final isSelected = _selectedCandidateId == candidateId;
-                
-                final ticketName = candidate['ticketName'] ?? 
-                                   candidate['name'] ?? 
-                                   'Ticket ${index + 1}';
+                final positionName = candidate['name'] ?? 'Nafasi ${index + 1}';
+                final positionDescription = candidate['description'] ?? '';
+                final candidateName = candidate['candidateName'] ?? '';
+                final candidateParty = candidate['candidateParty'] ?? '';
+                final candidatePhoto = candidate['candidatePhotoUrl'] ?? '';
                 final presidentName = candidate['presidentName'] ?? '';
                 final presidentParty = candidate['presidentParty'] ?? '';
+                final presidentPhoto = candidate['presidentPhotoUrl'] ?? '';
                 final vpName = candidate['vicePresidentName'] ?? '';
                 final vpParty = candidate['vicePresidentParty'] ?? '';
-                final presidentPhoto = candidate['presidentPhotoUrl'] ?? '';
                 final vpPhoto = candidate['vicePresidentPhotoUrl'] ?? '';
-              
+                final voteLabel = positionType == 'Single' ? 'Piga Kura kwa Mgombea' : 'Piga Kura kwa Ticket';
+
                 return GestureDetector(
                   onTap: () => setState(() => _selectedCandidateId = candidateId),
                   child: AnimatedContainer(
@@ -249,14 +251,14 @@ class _VotingScreenState extends State<VotingScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 13),
                           blurRadius: 8,
                         ),
                       ],
                     ),
                     child: Column(
                       children: [
-                        // Header ya Ticket
+                        // Header
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -280,49 +282,101 @@ class _VotingScreenState extends State<VotingScreen> {
                               ),
                               const SizedBox(width: 10),
                               Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      positionName,
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: isSelected ? Colors.white : Colors.black87,
+                                      ),
+                                    ),
+                                    if (positionDescription.isNotEmpty)
+                                      Text(
+                                        positionDescription,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: isSelected ? Colors.white70 : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? Colors.white24 : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 child: Text(
-                                  ticketName,
+                                  positionType == 'Single' ? 'Single' : 'Ticket',
                                   style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: isSelected ? Colors.white : Colors.black87,
+                                    fontSize: 12,
+                                    color: isSelected ? Colors.white : Colors.black54,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (positionType == 'Single')
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: _candidateCard(
+                              'Mgombea',
+                              candidateName,
+                              candidateParty,
+                              candidatePhoto,
+                              isSelected,
+                            ),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _candidateCard(
+                                    '🏅 Rais',
+                                    presidentName,
+                                    presidentParty,
+                                    presidentPhoto,
+                                    isSelected,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _candidateCard(
+                                    '🥈 Makamu',
+                                    vpName,
+                                    vpParty,
+                                    vpPhoto,
+                                    isSelected,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  voteLabel,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
                                   ),
                                 ),
                               ),
                               Icon(
                                 isSelected ? Icons.check_circle : Icons.circle_outlined,
-                                color: isSelected ? Colors.white : Colors.grey,
-                                size: 24,
-                              ),
-                            ],
-                          ),
-                        ),
-              
-                        // Rais na Makamu
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              // Rais
-                              Expanded(
-                                child: _candidateCard(
-                                  '🏅 Rais',
-                                  presidentName,
-                                  presidentParty,
-                                  presidentPhoto,
-                                  isSelected,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              // Makamu
-                              Expanded(
-                                child: _candidateCard(
-                                  '🥈 Makamu',
-                                  vpName,
-                                  vpParty,
-                                  vpPhoto,
-                                  isSelected,
-                                ),
+                                color: isSelected ? const Color(0xFF1565C0) : Colors.grey,
+                                size: 22,
                               ),
                             ],
                           ),
@@ -342,7 +396,7 @@ class _VotingScreenState extends State<VotingScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 13),
                   blurRadius: 10,
                   offset: const Offset(0, -5),
                 ),
@@ -393,12 +447,12 @@ class _VotingScreenState extends State<VotingScreen> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: isSelected
-            ? Colors.white.withOpacity(0.7)
+            ? Colors.white.withValues(alpha: 179)
             : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isSelected
-              ? const Color(0xFF1565C0).withOpacity(0.3)
+              ? const Color(0xFF1565C0).withValues(alpha: 77)
               : Colors.grey.shade200,
         ),
       ),
@@ -407,7 +461,7 @@ class _VotingScreenState extends State<VotingScreen> {
           // Picha
           CircleAvatar(
             radius: 30,
-            backgroundColor: const Color(0xFF1565C0).withOpacity(0.1),
+            backgroundColor: const Color(0xFF1565C0).withValues(alpha: 26),
             backgroundImage:
                 photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
             child: photoUrl.isEmpty

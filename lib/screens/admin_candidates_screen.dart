@@ -87,6 +87,10 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
     final isEdit = ticket != null;
     final nameController = TextEditingController(text: ticket?['name'] ?? '');
     final descController = TextEditingController(text: ticket?['description'] ?? '');
+    String positionType = ticket?['positionType']?.toString() ?? 'Ticket';
+    final candidateNameController = TextEditingController(text: ticket?['candidateName'] ?? '');
+    final candidatePartyController = TextEditingController(text: ticket?['candidateParty'] ?? '');
+    final candidatePhotoController = TextEditingController(text: ticket?['candidatePhotoUrl'] ?? '');
     final presidentNameController = TextEditingController(text: ticket?['presidentName'] ?? '');
     final presidentPartyController = TextEditingController(text: ticket?['presidentParty'] ?? '');
     final presidentPhotoController = TextEditingController(text: ticket?['presidentPhotoUrl'] ?? '');
@@ -102,7 +106,7 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
-            isEdit ? 'Hariri Ticket' : 'Ongeza Ticket Mpya',
+            isEdit ? 'Hariri Nafasi' : 'Ongeza Nafasi Mpya',
             style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
           ),
           content: SingleChildScrollView(
@@ -110,42 +114,69 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Maelezo ya Ticket
-                _sectionTitle('Maelezo ya Ticket'),
-                _dialogTextField(nameController, 'Jina la Ticket *', Icons.label),
+                // Maelezo ya Nafasi
+                _sectionTitle('Maelezo ya Nafasi'),
+                _dialogTextField(nameController, 'Jina la Nafasi *', Icons.label),
                 const SizedBox(height: 8),
                 _dialogTextField(descController, 'Maelezo (Optional)', Icons.description, maxLines: 2),
                 const SizedBox(height: 16),
 
-                // Rais
-                _sectionTitle('🏅 Rais (President)'),
-                _dialogTextField(presidentNameController, 'Jina la Rais *', Icons.person),
-                const SizedBox(height: 8),
-                _dialogTextField(presidentPartyController, 'Chama cha Rais', Icons.groups),
-                const SizedBox(height: 8),
-                _dialogTextField(presidentPhotoController, 'URL ya Picha ya Rais', Icons.image),
+                _sectionTitle('Aina ya Nafasi'),
+                DropdownButtonFormField<String>(
+                  initialValue: positionType,
+                  decoration: InputDecoration(
+                    hintText: 'Chagua aina',
+                    prefixIcon: const Icon(Icons.category, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Ticket', child: Text('Ticket (Rais + Makamu)')),
+                    DropdownMenuItem(value: 'Single', child: Text('Single (Nafasi ya mtu mmoja)')),
+                  ],
+                  onChanged: (val) => setDialogState(() {
+                    positionType = val ?? 'Ticket';
+                  }),
+                ),
                 const SizedBox(height: 16),
 
-                // Makamu
-                _sectionTitle('🥈 Makamu (Vice President)'),
-                _dialogTextField(vpNameController, 'Jina la Makamu *', Icons.person_outline),
-                const SizedBox(height: 8),
-                _dialogTextField(vpPartyController, 'Chama cha Makamu', Icons.groups_outlined),
-                const SizedBox(height: 8),
-                _dialogTextField(vpPhotoController, 'URL ya Picha ya Makamu', Icons.image_outlined),
-                const SizedBox(height: 12),
+                if (positionType == 'Single') ...[
+                  _sectionTitle('Mgombea'),
+                  _dialogTextField(candidateNameController, 'Jina la Mgombea *', Icons.person),
+                  const SizedBox(height: 8),
+                  _dialogTextField(candidatePartyController, 'Chama cha Mgombea', Icons.groups),
+                  const SizedBox(height: 8),
+                  _dialogTextField(candidatePhotoController, 'URL ya Picha ya Mgombea', Icons.image),
+                  const SizedBox(height: 16),
+                ] else ...[
+                  _sectionTitle('🏅 Rais (President)'),
+                  _dialogTextField(presidentNameController, 'Jina la Rais *', Icons.person),
+                  const SizedBox(height: 8),
+                  _dialogTextField(presidentPartyController, 'Chama cha Rais', Icons.groups),
+                  const SizedBox(height: 8),
+                  _dialogTextField(presidentPhotoController, 'URL ya Picha ya Rais', Icons.image),
+                  const SizedBox(height: 16),
+
+                  _sectionTitle('🥈 Makamu (Vice President)'),
+                  _dialogTextField(vpNameController, 'Jina la Makamu *', Icons.person_outline),
+                  const SizedBox(height: 8),
+                  _dialogTextField(vpPartyController, 'Chama cha Makamu', Icons.groups_outlined),
+                  const SizedBox(height: 8),
+                  _dialogTextField(vpPhotoController, 'URL ya Picha ya Makamu', Icons.image_outlined),
+                  const SizedBox(height: 12),
+                ],
 
                 // Active Switch
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Ticket Iwe Active?',
+                    Text('Nafasi iwe Active?',
                         style: GoogleFonts.poppins(
                             fontSize: 13, fontWeight: FontWeight.w600)),
                     Switch(
                       value: isActive,
                       onChanged: (val) => setDialogState(() => isActive = val),
-                      activeColor: const Color(0xFF1565C0),
+                      activeThumbColor: const Color(0xFF1565C0),
                     ),
                   ],
                 ),
@@ -161,9 +192,11 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
               onPressed: isLoading
                   ? null
                   : () async {
-                      if (nameController.text.isEmpty ||
-                          presidentNameController.text.isEmpty ||
-                          vpNameController.text.isEmpty) {
+                      final missingRequired = positionType == 'Single'
+                          ? nameController.text.isEmpty || candidateNameController.text.isEmpty
+                          : nameController.text.isEmpty || presidentNameController.text.isEmpty || vpNameController.text.isEmpty;
+
+                      if (missingRequired) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text('Jaza fields zote za lazima (*)',
                               style: GoogleFonts.poppins()),
@@ -175,8 +208,12 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                       setDialogState(() => isLoading = true);
 
                       final data = {
+                        'positionType': positionType,
                         'name': nameController.text,
                         'description': descController.text,
+                        'candidateName': candidateNameController.text,
+                        'candidateParty': candidatePartyController.text,
+                        'candidatePhotoUrl': candidatePhotoController.text,
                         'presidentName': presidentNameController.text,
                         'presidentParty': presidentPartyController.text,
                         'presidentPhotoUrl': presidentPhotoController.text,
@@ -188,15 +225,15 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
 
                       try {
                         if (isEdit) {
-                          await ApiService.updateTicket(ticket!['id'], data);
+                          await ApiService.updateTicket(ticket['id'] as int, data);
                         } else {
                           await ApiService.addTicket(data);
                         }
-                        if (!mounted) return;
+                        if (!ctx.mounted) return;
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
                           content: Text(
-                            isEdit ? 'Ticket imesasishwa!' : 'Ticket imeongezwa!',
+                            isEdit ? 'Nafasi imesasishwa!' : 'Nafasi imeongezwa!',
                             style: GoogleFonts.poppins(),
                           ),
                           backgroundColor: Colors.green,
@@ -268,7 +305,7 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1565C0),
         title: Text(
-          'Wagombea/Tickets (${_tickets.length})',
+          'Wagombea / Nafasi (${_tickets.length})',
           style: GoogleFonts.poppins(
               color: Colors.white, fontWeight: FontWeight.bold),
         ),
@@ -287,7 +324,7 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
         onPressed: () => _showAddEditTicketDialog(),
         backgroundColor: const Color(0xFF1565C0),
         icon: const Icon(Icons.add, color: Colors.white),
-        label: Text('Ongeza Ticket',
+        label: Text('Ongeza Nafasi',
             style: GoogleFonts.poppins(
                 color: Colors.white, fontWeight: FontWeight.w600)),
       ),
@@ -337,8 +374,16 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                         itemBuilder: (context, index) {
                           final ticket = _tickets[index];
                           final id = ticket['id'] as int?;
-                          final name = ticket['name'] ?? 'Ticket ${index + 1}';
+                          final positionType = ticket['positionType']?.toString() ?? 'Ticket';
+                          final name = ticket['name'] ?? 'Nafasi ${index + 1}';
+                          final description = ticket['description'] ?? '';
                           final isActive = ticket['isActive'] ?? true;
+                          final candidateName = ticket['candidateName'] ?? '';
+                          final candidateParty = ticket['candidateParty'] ?? '';
+                          final presidentName = ticket['presidentName'] ?? '';
+                          final presidentParty = ticket['presidentParty'] ?? '';
+                          final vpName = ticket['vicePresidentName'] ?? '';
+                          final vpParty = ticket['vicePresidentParty'] ?? '';
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -347,12 +392,12 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isActive
-                                    ? const Color(0xFF1565C0).withOpacity(0.3)
+                                    ? const Color(0xFF1565C0).withValues(alpha: 77)
                                     : Colors.grey.shade200,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black.withValues(alpha: 13),
                                   blurRadius: 10,
                                 ),
                               ],
@@ -364,7 +409,7 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
                                     color: isActive
-                                        ? const Color(0xFF1565C0).withOpacity(0.05)
+                                        ? const Color(0xFF1565C0).withValues(alpha: 13)
                                         : Colors.grey.shade50,
                                     borderRadius: const BorderRadius.only(
                                       topLeft: Radius.circular(16),
@@ -404,10 +449,9 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                                                     : Colors.grey,
                                               ),
                                             ),
-                                            if (ticket['description'] != null &&
-                                                ticket['description'].isNotEmpty)
+                                            if (description.isNotEmpty)
                                               Text(
-                                                ticket['description'],
+                                                description,
                                                 style: GoogleFonts.poppins(
                                                     fontSize: 11,
                                                     color: Colors.grey),
@@ -440,31 +484,40 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                                   ),
                                 ),
 
-                                // Rais na Makamu
-                                Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Row(
-                                    children: [
-                                      // Rais
-                                      Expanded(
-                                        child: _candidateCard(
-                                          '🏅 Rais',
-                                          ticket['presidentName'] ?? 'Haijawekwa',
-                                          ticket['presidentParty'] ?? '',
+                                if (positionType == 'Single')
+                                  Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: _candidateCard(
+                                      'Mgombea',
+                                      candidateName.isNotEmpty ? candidateName : 'Haijawekwa',
+                                      candidateParty,
+                                    ),
+                                  )
+                                else
+                                  Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: Row(
+                                      children: [
+                                        // Rais
+                                        Expanded(
+                                          child: _candidateCard(
+                                            '🏅 Rais',
+                                            presidentName.isNotEmpty ? presidentName : 'Haijawekwa',
+                                            presidentParty,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      // Makamu
-                                      Expanded(
-                                        child: _candidateCard(
-                                          '🥈 Makamu',
-                                          ticket['vicePresidentName'] ?? 'Haijawekwa',
-                                          ticket['vicePresidentParty'] ?? '',
+                                        const SizedBox(width: 10),
+                                        // Makamu
+                                        Expanded(
+                                          child: _candidateCard(
+                                            '🥈 Makamu',
+                                            vpName.isNotEmpty ? vpName : 'Haijawekwa',
+                                            vpParty,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
 
                                 // Kura
                                 Padding(

@@ -321,7 +321,7 @@ class _AdminVotersScreenState extends State<AdminVotersScreen> {
 
       final sent = (result['sent'] ?? 0) as int;
       final failed = result['failed'] != null
-          ? List<String>.from(result['failed'] as List)
+          ? List<String>.from(result['failed'] as List<String>)
           : <String>[];
 
       showDialog(
@@ -1227,7 +1227,7 @@ class _AdminVotersScreenState extends State<AdminVotersScreen> {
                       }
                       setDialogState(() => isLoading = true);
                       try {
-                        await ApiService.addVoter({
+                        final result = await ApiService.addVoter({
                           'fullName': fullNameController.text,
                           'admissionNumber':
                               admissionController.text,
@@ -1235,10 +1235,15 @@ class _AdminVotersScreenState extends State<AdminVotersScreen> {
                         });
                         if (!mounted) return;
                         Navigator.pop(ctx);
+                        final password = result['password']?.toString();
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(
-                          content: Text('Mpiga kura ameongezwa!',
-                              style: GoogleFonts.poppins()),
+                          content: Text(
+                            password != null
+                                ? 'Mpiga kura ameongezwa! Password: $password'
+                                : 'Mpiga kura ameongezwa!',
+                            style: GoogleFonts.poppins(),
+                          ),
                           backgroundColor: Colors.green,
                         ));
                         _loadVoters();

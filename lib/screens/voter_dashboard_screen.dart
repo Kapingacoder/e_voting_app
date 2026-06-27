@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'setup_account_security_screen.dart';
 import 'voting_screen.dart';
 import 'results_screen.dart';
 import 'profile_screen.dart';
@@ -18,6 +19,7 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
   int _currentIndex = 0;
   Map<String, dynamic>? _dashboardData;
   bool _isLoading = true;
+  bool _securitySetupRequired = false;
   String? _error;
 
   @override
@@ -33,8 +35,11 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
         _error = null;
       });
       final data = await ApiService.getDashboard();
+      final required = await ApiService.isCurrentVoterSecuritySetupRequired();
+      if (!mounted) return;
       setState(() {
         _dashboardData = data;
+        _securitySetupRequired = required;
         _isLoading = false;
       });
     } catch (e) {
@@ -43,6 +48,16 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _goToSetupSecurity() {
+    final username = _dashboardData?['user']?['username']?.toString() ?? '';
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SetupAccountSecurityScreen(username: username),
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -157,6 +172,65 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
             ),
             const SizedBox(height: 20),
 
+            if (_securitySetupRequired)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.security, color: Colors.orange, size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Tafadhali kamilisha setup ya usalama kabla ya kuendelea.',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Badilisha password yako na weka swali/jibu la usalama ili kulindwa na kumruhusu admin kukusaidia kwa salama.',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey.shade800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _goToSetupSecurity,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Kamilisha Setup ya Usalama',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 20),
+
             ElectionCountdown(
               startTime: _dashboardData?['election']?['startTime'] ??
                          _dashboardData?['mostRecentElection']?['startTime'],
@@ -263,7 +337,7 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
             const SizedBox(height: 24),
 
             // Kitufe cha Piga Kura
-            if (electionActive && !hasVoted)
+            if (electionActive && !hasVoted && !_securitySetupRequired)
               SizedBox(
                 width: double.infinity,
                 height: 54,
@@ -325,14 +399,20 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
               )
             else
               ...tickets.map((ticket) {
-                final ticketName = ticket['ticketName'] ?? ticket['name'] ?? '';
+                final positionType = ticket['positionType']?.toString() ?? 'Ticket';
+                final positionName = ticket['name'] ?? 'Nafasi';
+                final positionDescription = ticket['description'] ?? '';
+                final isActive = ticket['isActive'] ?? true;
+                final candidateName = ticket['candidateName'] ?? '';
+                final candidateParty = ticket['candidateParty'] ?? '';
+                final candidatePhoto = ticket['candidatePhotoUrl'] ?? '';
                 final presidentName = ticket['presidentName'] ?? '';
                 final presidentParty = ticket['presidentParty'] ?? '';
                 final vpName = ticket['vicePresidentName'] ?? '';
                 final vpParty = ticket['vicePresidentParty'] ?? '';
                 final presidentPhoto = ticket['presidentPhotoUrl'] ?? '';
                 final vpPhoto = ticket['vicePresidentPhotoUrl'] ?? '';
-            
+
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
@@ -340,7 +420,7 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
+                        color: Colors.black.withValues(alpha: 15),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -348,11 +428,11 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
                   ),
                   child: Column(
                     children: [
-                      // Header ya Ticket
+                      // Header ya Nafasi
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1565C0).withOpacity(0.05),
+                          color: const Color(0xFF1565C0).withValues(alpha: 13),
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(16),
                             topRight: Radius.circular(16),
@@ -374,46 +454,81 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
                             ),
                             const SizedBox(width: 10),
                             Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    positionName,
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: const Color(0xFF1565C0),
+                                    ),
+                                  ),
+                                  if (positionDescription.isNotEmpty)
+                                    Text(
+                                      positionDescription,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isActive ? Colors.green.shade100 : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               child: Text(
-                                ticketName,
+                                positionType == 'Single' ? 'Single' : 'Ticket',
                                 style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: const Color(0xFF1565C0),
+                                  fontSize: 11,
+                                  color: isActive ? Colors.green.shade800 : Colors.grey.shade700,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
-            
-                      // Rais na Makamu
-                      Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          children: [
-                            // Rais
-                            Expanded(
-                              child: _candidateInfoCard(
-                                '🏅 Rais',
-                                presidentName,
-                                presidentParty,
-                                presidentPhoto,
+                      if (positionType == 'Single')
+                        Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: _candidateInfoCard(
+                            'Mgombea',
+                            candidateName,
+                            candidateParty,
+                            candidatePhoto,
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _candidateInfoCard(
+                                  '🏅 Rais',
+                                  presidentName,
+                                  presidentParty,
+                                  presidentPhoto,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            // Makamu
-                            Expanded(
-                              child: _candidateInfoCard(
-                                '🥈 Makamu',
-                                vpName,
-                                vpParty,
-                                vpPhoto,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _candidateInfoCard(
+                                  '🥈 Makamu',
+                                  vpName,
+                                  vpParty,
+                                  vpPhoto,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 );
@@ -438,7 +553,7 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
           // Picha
           CircleAvatar(
             radius: 30,
-            backgroundColor: const Color(0xFF1565C0).withOpacity(0.1),
+            backgroundColor: const Color(0xFF1565C0).withValues(alpha: 26),
             backgroundImage:
                 photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
             child: photoUrl.isEmpty
@@ -458,7 +573,7 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF1565C0).withOpacity(0.1),
+              color: const Color(0xFF1565C0).withValues(alpha: 26),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(

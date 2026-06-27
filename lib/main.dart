@@ -6,7 +6,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
+import 'screens/setup_account_security_screen.dart';
 import 'screens/voter_dashboard_screen.dart';
+import 'screens/admin_dashboard_screen.dart';
 import 'services/api_service.dart';
 
 // Local notifications instance
@@ -184,11 +186,28 @@ class _SplashScreenState extends State<SplashScreen> {
     final token = await ApiService.getToken();
     if (!mounted) return;
     if (token != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (_) => const VoterDashboardScreen()),
-      );
+      final role = await ApiService.getRole();
+      if (role == 'ADMIN') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (_) => const AdminDashboardScreen()),
+        );
+      } else if (role == 'VOTER' && await ApiService.isCurrentVoterSecuritySetupRequired()) {
+        final username = await ApiService.getUsername() ?? '';
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (_) => SetupAccountSecurityScreen(
+                    username: username,
+                  )),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const VoterDashboardScreen()),
+        );
+      }
     } else {
       Navigator.pushReplacement(
         context,
