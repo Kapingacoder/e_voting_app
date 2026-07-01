@@ -1,6 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'admin_election_screen.dart';
 import 'admin_voters_screen.dart';
@@ -18,23 +19,27 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  int _unreadMessages = 0;
+  late Future<Map<String, int>> _countsFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadUnreadCount();
+    _countsFuture = _loadCounts();
   }
 
-  Future<void> _loadUnreadCount() async {
-    try {
-      final count = await ApiService.getUnreadCount();
-      if (mounted) {
-        setState(() => _unreadMessages = count);
-      }
-    } catch (e) {
-      // ignore
-    }
+  Future<Map<String, int>> _loadCounts() async {
+    final firestore = FirebaseFirestore.instance;
+    final usersSnapshot = await firestore.collection('users').get();
+    final ticketsSnapshot = await firestore.collection('tickets').get();
+    final electionsSnapshot = await firestore.collection('elections').get();
+    final unreadSnapshot = await firestore.collection('messages').where('read', isEqualTo: false).get();
+
+    return {
+      'users': usersSnapshot.size,
+      'tickets': ticketsSnapshot.size,
+      'elections': electionsSnapshot.size,
+      'unreadMessages': unreadSnapshot.size,
+    };
   }
 
   Future<void> _logout() async {
@@ -51,7 +56,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await ApiService.deleteToken();
+              await FirebaseAuth.instance.signOut();
               if (!mounted) return;
               Navigator.pushAndRemoveUntil(
                 context,
@@ -107,9 +112,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: Text(
                         '$badge',
                         style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -127,6 +133,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       fontSize: 15,
                     ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: GoogleFonts.poppins(
@@ -172,143 +179,142 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+      body: FutureBuilder<Map<String, int>>(
+        future: _countsFuture,
+        builder: (context, snapshot) {
+          final counts = snapshot.data ?? {};
+          final userCount = counts['users'] ?? 0;
+          final ticketsCount = counts['tickets'] ?? 0;
+          final electionsCount = counts['elections'] ?? 0;
+          final unreadCount = counts['unreadMessages'] ?? 0;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.admin_panel_settings, color: Colors.white, size: 40),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Karibu Admin!',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Usimamizi wa Mfumo wa E-Voting',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.admin_panel_settings,
-                      color: Colors.white, size: 40),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Karibu Admin!',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Usimamizi wa Mfumo wa E-Voting',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white70,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            Text(
-              'Menyu ya Usimamizi',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            _buildMenuCard(
-              Icons.how_to_vote,
-              'Usimamizi wa Uchaguzi',
-              'Anza, simamisha, panga uchaguzi',
-              const Color(0xFF1565C0),
-              () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AdminElectionScreen())),
-            ),
-            const SizedBox(height: 10),
-            _buildMenuCard(
-              Icons.people,
-              'Wapiga Kura',
-              'Ongeza, hariri, futa wapiga kura',
-              Colors.green,
-              () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AdminVotersScreen())),
-            ),
-            const SizedBox(height: 10),
-            _buildMenuCard(
-              Icons.person_pin,
-              'Wagombea',
-              'Simamia wagombea wa uchaguzi',
-              Colors.orange,
-              () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AdminCandidatesScreen())),
-            ),
-            const SizedBox(height: 10),
-            _buildMenuCard(
-              Icons.bar_chart,
-              'Matokeo',
-              'Angalia matokeo ya uchaguzi',
-              Colors.purple,
-              () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AdminResultsScreen())),
-            ),
-            const SizedBox(height: 10),
-            _buildMenuCard(
-              Icons.notifications_active,
-              'Tuma Arifa (Push)',
-              'Tuma taarifa za papo hapo kwa simu',
-              Colors.pink,
-              () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const AdminNotificationsScreen())),
-            ),
-            const SizedBox(height: 10),
-            _buildMenuCard(
-              Icons.message,
-              'Ujumbe wa Voters',
-              'Soma ujumbe kutoka kwa wapiga kura',
-              Colors.teal,
-              () async {
-                await Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const AdminMessagesScreen()));
-                _loadUnreadCount();
-              },
-              badge: _unreadMessages > 0 ? _unreadMessages : null,
-            ),
-            const SizedBox(height: 30),
-
-            // Kitufe cha Toka
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton.icon(
-                onPressed: _logout,
-                icon: const Icon(Icons.logout),
-                label: Text(
-                  'Toka (Logout)',
+                const SizedBox(height: 24),
+                Text(
+                  'Menyu ya Usimamizi',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade700,
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 12),
+                _buildMenuCard(
+                  Icons.how_to_vote,
+                  'Usimamizi wa Uchaguzi',
+                  electionsCount > 0 ? 'Uchaguzi umewekwa' : 'Hakuna uchaguzi',
+                  const Color(0xFF1565C0),
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminElectionScreen())),
+                ),
+                const SizedBox(height: 10),
+                _buildMenuCard(
+                  Icons.people,
+                  'Wapiga Kura',
+                  'Wapiga kura: $userCount',
+                  Colors.green,
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminVotersScreen())),
+                ),
+                const SizedBox(height: 10),
+                _buildMenuCard(
+                  Icons.person_pin,
+                  'Wagombea',
+                  'Tickets: $ticketsCount',
+                  Colors.orange,
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminCandidatesScreen())),
+                ),
+                const SizedBox(height: 10),
+                _buildMenuCard(
+                  Icons.bar_chart,
+                  'Matokeo',
+                  'Matokeo ya uchaguzi',
+                  Colors.purple,
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminResultsScreen())),
+                ),
+                const SizedBox(height: 10),
+                _buildMenuCard(
+                  Icons.notifications_active,
+                  'Tuma Arifa',
+                  'Tuma taarifa kwa watumiaji',
+                  Colors.pink,
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminNotificationsScreen())),
+                ),
+                const SizedBox(height: 10),
+                _buildMenuCard(
+                  Icons.message,
+                  'Ujumbe wa Voters',
+                  'Ujumbe zisizosomewa: $unreadCount',
+                  Colors.teal,
+                  () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminMessagesScreen()));
+                    if (mounted) {
+                      setState(() {
+                        _countsFuture = _loadCounts();
+                      });
+                    }
+                  },
+                  badge: unreadCount > 0 ? unreadCount : null,
+                ),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: _logout,
+                    icon: const Icon(Icons.logout),
+                    label: Text(
+                      'Toka (Logout)',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

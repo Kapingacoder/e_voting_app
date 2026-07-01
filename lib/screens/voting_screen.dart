@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class VotingScreen extends StatefulWidget {
   final List<dynamic> candidates;
@@ -16,10 +18,18 @@ class VotingScreen extends StatefulWidget {
   State<VotingScreen> createState() => _VotingScreenState();
 }
 
+class _AlreadyVotedException implements Exception {}
+
+class _VoteFailedException implements Exception {
+  final String message;
+  _VoteFailedException(this.message);
+}
+
 class _VotingScreenState extends State<VotingScreen> {
   int? _selectedCandidateId;
   bool _isLoading = false;
   bool _isVoted = false;
+
 
   Future<void> _castVote() async {
     if (_selectedCandidateId == null) {
@@ -68,29 +78,123 @@ class _VotingScreenState extends State<VotingScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final result = await ApiService.castVote(_selectedCandidateId!);
-
-      if (result.containsKey('message')) {
-        setState(() => _isVoted = true);
-        widget.onVoted();
-      } else {
+      final user = FirebaseAuth.instance.currentUser;
+      final uid = user?.uid;
+      if (uid == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              result['error'] ?? 'Imeshindwa kupiga kura. Jaribu tena.',
+              'Tafadhali ingia tena ili kupiga kura.',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Tafuta election iliyo active (votingOpen == true)
+      final electionSnap = await FirebaseFirestore.instance
+          .collection('elections')
+          .where('votingOpen', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (electionSnap.docs.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Uchaguzi haupo kwa sasa.',
               style: GoogleFonts.poppins(),
             ),
             backgroundColor: Colors.red,
           ),
         );
+        return;
       }
+
+      final electionDoc = electionSnap.docs.first;
+      final electionData = electionDoc.data();
+      final electionId = (electionData['electionId'] ?? electionDoc.id)
+          .toString();
+
+      final voteKey = '${electionId}_$uid';
+
+      // Transaction: double-vote prevention + atomic vote increment
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final voteRef = FirebaseFirestore.instance
+            .collection('election_votes')
+            .doc(voteKey);
+
+        final voteDoc = await tx.get(voteRef);
+        if (voteDoc.exists) {
+          throw _AlreadyVotedException();
+        }
+
+        // Update vote count kwenye ticket
+        final ticketRef = FirebaseFirestore.instance
+            .collection('tickets')
+            .doc(_selectedCandidateId.toString());
+
+        final ticketDoc = await tx.get(ticketRef);
+        if (!ticketDoc.exists) {
+          throw _VoteFailedException('Ticket haipo.');
+        }
+
+        final currentCount = (ticketDoc.data()?['voteCount'] ??
+                ticketDoc.data()?['votes'] ??
+                0)
+            as num;
+
+        final updatedCount = currentCount.toInt() + 1;
+
+        tx.update(ticketRef, {
+          'voteCount': updatedCount,
+          // legacy field optional
+          'votes': updatedCount,
+        });
+
+        tx.set(voteRef, {
+          'electionId': electionId,
+          'uid': uid,
+          'ticketId': _selectedCandidateId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+      if (!mounted) return;
+      setState(() => _isVoted = true);
+      widget.onVoted();
+    } on _AlreadyVotedException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Umeshapiga kura tayari kwenye uchaguzi huu.',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } on _VoteFailedException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.message,
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Hakuna connection na server.',
+            'Imeshindwa kupiga kura (angalia muunganisho/ruhusa).',
             style: GoogleFonts.poppins(),
           ),
           backgroundColor: Colors.red,
@@ -99,6 +203,7 @@ class _VotingScreenState extends State<VotingScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+
   }
 
   @override
@@ -221,116 +326,14 @@ class _VotingScreenState extends State<VotingScreen> {
               itemCount: widget.candidates.length,
               itemBuilder: (context, index) {
                 final candidate = widget.candidates[index];
-                final candidateId = candidate['id'] as int? ?? 
-                                    candidate['ticketId'] as int?;
-                final isSelected = _selectedCandidateId == candidateId;
-                
-                final ticketName = candidate['ticketName'] ?? 
-                                   candidate['name'] ?? 
-                                   'Ticket ${index + 1}';
-                final presidentName = candidate['presidentName'] ?? '';
-                final presidentParty = candidate['presidentParty'] ?? '';
-                final vpName = candidate['vicePresidentName'] ?? '';
-                final vpParty = candidate['vicePresidentParty'] ?? '';
-                final presidentPhoto = candidate['presidentPhotoUrl'] ?? '';
-                final vpPhoto = candidate['vicePresidentPhotoUrl'] ?? '';
-              
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedCandidateId = candidateId),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFE3F2FD) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200,
-                        width: isSelected ? 2 : 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Header ya Ticket
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFF1565C0)
-                                : Colors.grey.shade100,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(15),
-                              topRight: Radius.circular(15),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                '${index + 1}',
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.grey,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  ticketName,
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: isSelected ? Colors.white : Colors.black87,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                isSelected ? Icons.check_circle : Icons.circle_outlined,
-                                color: isSelected ? Colors.white : Colors.grey,
-                                size: 24,
-                              ),
-                            ],
-                          ),
-                        ),
-              
-                        // Rais na Makamu
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              // Rais
-                              Expanded(
-                                child: _candidateCard(
-                                  '🏅 Rais',
-                                  presidentName,
-                                  presidentParty,
-                                  presidentPhoto,
-                                  isSelected,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              // Makamu
-                              Expanded(
-                                child: _candidateCard(
-                                  '🥈 Makamu',
-                                  vpName,
-                                  vpParty,
-                                  vpPhoto,
-                                  isSelected,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+                final positionType = candidate['positionType'] ?? 'Ticket'; // Default to Ticket for backward compatibility
+
+                if (positionType == 'Single') {
+                  return _buildSingleCandidateItem(candidate, index);
+                } else {
+                  // Default is 'Ticket'
+                  return _buildTicketCandidateItem(candidate, index);
+                }
               },
             ),
           ),
@@ -383,6 +386,197 @@ class _VotingScreenState extends State<VotingScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSingleCandidateItem(Map<String, dynamic> candidate, int index) {
+    final candidateId = candidate['id'] as int?;
+    final isSelected = _selectedCandidateId == candidateId;
+
+    final name = candidate['name'] ?? 'Mgombea ${index + 1}';
+    final party = candidate['party'] ?? '';
+    final photoUrl = candidate['photoUrl'] ?? '';
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCandidateId = candidateId),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE3F2FD) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: const Color(0xFF1565C0).withOpacity(0.1),
+              backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+              child: photoUrl.isEmpty
+                  ? Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade600,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  if (party.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      party,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: isSelected ? const Color(0xFF1565C0) : Colors.grey,
+              size: 28,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTicketCandidateItem(Map<String, dynamic> candidate, int index) {
+    final candidateId = candidate['id'] as int? ?? candidate['ticketId'] as int?;
+    final isSelected = _selectedCandidateId == candidateId;
+
+    final ticketName = candidate['ticketName'] ?? candidate['name'] ?? 'Ticket ${index + 1}';
+    final presidentName = candidate['presidentName'] ?? '';
+    final presidentParty = candidate['presidentParty'] ?? '';
+    final vpName = candidate['vicePresidentName'] ?? '';
+    final vpParty = candidate['vicePresidentParty'] ?? '';
+    final presidentPhoto = candidate['presidentPhotoUrl'] ?? '';
+    final vpPhoto = candidate['vicePresidentPhotoUrl'] ?? '';
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCandidateId = candidateId),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE3F2FD) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Header ya Ticket
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade100,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(15),
+                  topRight: Radius.circular(15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.grey,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      ticketName,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isSelected ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    isSelected ? Icons.check_circle : Icons.circle_outlined,
+                    color: isSelected ? Colors.white : Colors.grey,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+
+            // Rais na Makamu
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // Rais
+                  Expanded(
+                    child: _candidateCard(
+                      '🏅 Rais',
+                      presidentName,
+                      presidentParty,
+                      presidentPhoto,
+                      isSelected,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Makamu
+                  Expanded(
+                    child: _candidateCard(
+                      '🥈 Makamu',
+                      vpName,
+                      vpParty,
+                      vpPhoto,
+                      isSelected,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

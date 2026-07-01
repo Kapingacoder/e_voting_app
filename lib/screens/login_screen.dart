@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../services/api_service.dart';
+import '../services/firebase_auth_service.dart';
+import '../services/user_security_service.dart';
 import 'voter_dashboard_screen.dart';
 import 'admin_dashboard_screen.dart';
+import 'setup_account_security_screen.dart';
+
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +25,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
 
+  String _authEmailFromAdmission(String admissionNumber) {
+    return '${admissionNumber.trim().toLowerCase()}@voters.evote.app';
+  }
+
   Future<void> _login() async {
     if (_usernameController.text.isEmpty ||
         _passwordController.text.isEmpty) {
@@ -30,38 +41,93 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
     try {
-      final result = await ApiService.login(
-        _usernameController.text.trim(),
-        _passwordController.text.trim(),
+      final rawUsername = _usernameController.text.trim();
+      final email = rawUsername.contains('@')
+          ? rawUsername
+          : _authEmailFromAdmission(rawUsername);
+
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: _passwordController.text.trim(),
       );
-      if (result.containsKey('token')) {
-        await ApiService.saveToken(result['token']);
-        await ApiService.saveUserInfo(
-          result['fullName'] ?? '',
-          result['role'] ?? '',
+
+      if (!mounted) return;
+
+      await UserSecurityService.ensureCurrentUserRecordExists();
+      final isFirstLogin = await UserSecurityService.isFirstLogin();
+      if (!mounted) return;
+
+      if (isFirstLogin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SetupAccountSecurityScreen(
+              currentPassword: _passwordController.text.trim(),
+            ),
+          ),
         );
-        if (!mounted) return;
-        final role = result['role'] ?? '';
-        if (role == 'ADMIN') {
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(
-                  builder: (_) => const AdminDashboardScreen()));
-        } else {
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(
-                  builder: (_) => const VoterDashboardScreen()));
-        }
-      } else {
-        setState(() {
-          _errorMessage =
-              result['error'] ?? 'Login imeshindwa. Jaribu tena.';
-        });
+        return;
       }
+
+      // Bypass for local testing: Force admin role for 'admin@test.com'
+      if (email == 'admin@test.com') {
+        FirebaseAuthService.storeAdminCredentials(
+          email: email,
+          password: _passwordController.text.trim(),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+        );
+        return;
+      }
+
+      final role = await FirebaseAuthService.getCurrentRole();
+
+      if (role == 'admin') {
+        FirebaseAuthService.storeAdminCredentials(
+          email: email,
+          password: _passwordController.text.trim(),
+        );
+      }
+
+      if (!mounted) return;
+
+      if (role == 'admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const VoterDashboardScreen()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'Mtumiaji hakupatikana. Hakikisha admission/email yako ni sahihi.';
+          break;
+        case 'wrong-password':
+          message = 'Password si sahihi. Jaribu tena.';
+          break;
+        case 'invalid-email':
+          message = 'Email/admission si sahihi.';
+          break;
+        case 'network-request-failed':
+          message = 'Muunganisho wa mtandao umeshindikana. Angalia internet yako.';
+          break;
+        case 'too-many-requests':
+          message = 'Umefanya majaribio mengi sana. Subiri kidogo kisha jaribu tena.';
+          break;
+        default:
+          message = e.message ?? 'Login imeshindwa. Jaribu tena.';
+      }
+      setState(() => _errorMessage = message);
     } catch (e) {
-      setState(() {
-        _errorMessage =
-            'Hakuna connection na server. Angalia internet yako.';
-      });
+      setState(() => _errorMessage = 'Login imeshindwa. Jaribu tena.');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -142,24 +208,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       setDialogState(() => isLoading = true);
                       try {
                         debugPrint('Sending forgot password for: ${admissionController.text.trim()}');
-
-                        final result =
-                            await ApiService.forgotPassword(
-                                admissionController.text.trim());
-
-                        debugPrint('Forgot password result: $result');
+                        
+                        await FirebaseAuthService.sendPasswordResetEmailByAdmissionNumber(
+                          admissionNumber: admissionController.text.trim(),
+                        );
 
                         if (!mounted) return;
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(
                           content: Text(
-                            result['message'] ?? result['error'] ?? 'Jibu halijulikana',
+                            'Password reset link sent to your email.',
                             style: GoogleFonts.poppins(),
                           ),
-                          backgroundColor: result.containsKey('message') 
-                              ? Colors.green 
-                              : Colors.red,
+                          backgroundColor: Colors.green,
                           duration: const Duration(seconds: 5),
                         ));
                       } catch (e) {
@@ -167,8 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         setDialogState(() => isLoading = false);
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(
-                          content: Text(
-                              'Imeshindwa: $e',
+                          content: Text('Failed to send reset email: ${e.toString()}',
                               style: GoogleFonts.poppins()),
                           backgroundColor: Colors.red,
                         ));

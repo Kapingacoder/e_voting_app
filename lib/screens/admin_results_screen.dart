@@ -1,9 +1,11 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
-import '../services/pdf_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/results_chart.dart';
+
+
+
+
 
 class AdminResultsScreen extends StatefulWidget {
   const AdminResultsScreen({super.key});
@@ -13,43 +15,28 @@ class AdminResultsScreen extends StatefulWidget {
 }
 
 class _AdminResultsScreenState extends State<AdminResultsScreen> {
-  Map<String, dynamic>? _resultsData;
-  bool _isLoading = true;
-  String? _error;
-  Timer? _timer;
-
   @override
   void initState() {
     super.initState();
-    _loadResults();
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) => _loadResults());
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  // No polling needed; StreamBuilder provides real-time updates.
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> _ticketsStream() {
+    return FirebaseFirestore.instance
+        .collection('tickets')
+        .orderBy('voteCount', descending: true)
+        .snapshots();
   }
 
-  Future<void> _loadResults() async {
-    try {
-      final data = await ApiService.getAdminResults();
-      if (mounted) {
-        setState(() {
-          _resultsData = data;
-          _isLoading = false;
-          _error = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = 'Imeshindwa kupakia matokeo. Jaribu tena.';
-          _isLoading = false;
-        });
-      }
-    }
+  Stream<QuerySnapshot<Map<String, dynamic>>> _electionsStream() {
+    return FirebaseFirestore.instance
+        .collection('elections')
+        .where('votingOpen', isEqualTo: true)
+        .limit(1)
+        .snapshots();
   }
+
 
   int _getTotalVotes(List<dynamic> results) {
     int total = 0;
@@ -63,6 +50,7 @@ class _AdminResultsScreenState extends State<AdminResultsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
+
       appBar: AppBar(
         backgroundColor: const Color(0xFF1565C0),
         title: Text('Matokeo ya Uchaguzi',
@@ -76,59 +64,112 @@ class _AdminResultsScreenState extends State<AdminResultsScreen> {
           IconButton(
             icon: const Icon(Icons.print, color: Colors.white),
             tooltip: 'Print PDF Report',
-            onPressed: _resultsData == null
-                ? null
-                : () async {
-                    await PdfService.generateElectionReport(
-                      context: context,
-                      resultsData: _resultsData!,
-                    );
-                  },
+            onPressed: null,
           ),
+
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadResults,
+            onPressed: () {
+              // StreamBuilder handles real-time updates, so manual refresh is not needed.
+            },
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1565C0)))
-          : _error != null
-              ? Center(
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: _electionsStream(),
+        builder: (context, electionSnap) {
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: _ticketsStream(),
+            builder: (context, ticketsSnap) {
+              if (electionSnap.connectionState == ConnectionState.waiting ||
+                  ticketsSnap.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF1565C0)),
+                );
+              }
+
+              if (electionSnap.hasError || ticketsSnap.hasError) {
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.error_outline,
                           size: 60, color: Colors.red),
                       const SizedBox(height: 16),
-                      Text(_error!, style: GoogleFonts.poppins()),
+                      Text(
+                        'Imeshindwa kupakia matokeo ya uchaguzi (hakuna ruhusa).',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(),
+                      ),
                       const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadResults,
-                        child: Text('Jaribu Tena',
-                            style: GoogleFonts.poppins()),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).maybePop();
+                          // StreamBuilder will rebuild when returning.
+                        },
+                        child: Text(
+                          'Rudia tena',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                )
-              : _buildResults(),
+                );
+              }
+
+              final electionDoc = electionSnap.data?.docs.firstOrNull;
+              final isActive = (electionDoc?.data()?['votingOpen'] ?? false) == true;
+
+              final tickets = ticketsSnap.data?.docs
+                      .map((d) => {
+                            'id': d.id,
+                            ...d.data(),
+                          })
+                      .toList() ??
+                  const <Map<String, dynamic>>[];
+
+              if (tickets.isEmpty) {
+                return _buildResults(
+                  tickets: const <Map<String, dynamic>>[],
+                  election: electionDoc?.data(),
+                  isActive: isActive,
+                );
+              }
+
+              return _buildResults(
+                tickets: tickets,
+                election: electionDoc?.data(),
+                isActive: isActive,
+              );
+            },
+          );
+        },
+      ),
+
     );
   }
 
-  Widget _buildResults() {
-    final tickets = _resultsData?['tickets'] ?? 
-                    _resultsData?['candidates'] ?? [];
-    final election = _resultsData?['election'];
-    final isActive = election?['votingOpen'] ?? false;
+  Widget _buildResults({
+    required List<Map<String, dynamic>> tickets,
+    required Map<String, dynamic>? election,
+    required bool isActive,
+  }) {
     final totalVotes = _getTotalVotes(tickets);
+
 
     final sortedTickets = List.from(tickets)
       ..sort((a, b) => ((b['voteCount'] ?? 0))
           .compareTo((a['voteCount'] ?? 0)));
 
     return RefreshIndicator(
-      onRefresh: _loadResults,
+      onRefresh: () async {
+        // With Firestore streams, data is updated in real-time.
+        // This onRefresh is here for the pull-to-refresh UI pattern,
+        // but no explicit data refetching is needed.
+        return;
+      },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),

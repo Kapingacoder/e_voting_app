@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 
 class AdminProfileScreen extends StatefulWidget {
@@ -11,6 +12,8 @@ class AdminProfileScreen extends StatefulWidget {
 }
 
 class _AdminProfileScreenState extends State<AdminProfileScreen> {
+  final _currentUser = FirebaseAuth.instance.currentUser;
+
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
   String? _error;
@@ -22,19 +25,33 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
+    if (_currentUser == null) {
+      setState(() {
+        _error = 'Mtumiaji hajasajiliwa.';
+        _isLoading = false;
+      });
+      return;
+    }
     try {
       setState(() {
         _isLoading = true;
         _error = null;
       });
-      final data = await ApiService.getAdminProfile();
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .get();
+
+      if (!mounted) return;
       setState(() {
-        _profileData = data;
+        _profileData = doc.data();
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = 'Imeshindwa kupakia profile.';
+        _error = 'Imeshindwa kupakia wasifu.';
         _isLoading = false;
       });
     }
@@ -126,15 +143,25 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       }
                       setDialogState(() => isLoading = true);
                       try {
-                        final result = await ApiService.adminChangePassword(
-                          currentController.text,
-                          newController.text,
-                        );
+                        if (_currentUser == null) {
+                          throw Exception("Mtumiaji hajasajiliwa.");
+                        }
+
+                        // Re-authenticate for security
+                        AuthCredential credential = EmailAuthProvider.credential(
+                            email: _currentUser!.email!,
+                            password: currentController.text);
+                        await _currentUser!
+                            .reauthenticateWithCredential(credential);
+
+                        // Change password in Firebase Auth
+                        await _currentUser!.updatePassword(newController.text);
+
                         if (!mounted) return;
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(
-                            result['message'] ?? 'Password imebadilishwa!',
+                            'Password imebadilishwa!',
                             style: GoogleFonts.poppins(),
                           ),
                           backgroundColor: Colors.green,
@@ -142,7 +169,10 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       } catch (e) {
                         setDialogState(() => isLoading = false);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Imeshindwa kubadilisha password.',
+                          content: Text(
+                              e is FirebaseAuthException
+                                  ? 'Password ya sasa si sahihi.'
+                                  : 'Imeshindwa kubadilisha password.',
                               style: GoogleFonts.poppins()),
                           backgroundColor: Colors.red,
                         ));
@@ -210,18 +240,24 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       }
                       setDialogState(() => isLoading = true);
                       try {
-                        final result = await ApiService.adminChangeUsername(
-                            usernameController.text);
+                        if (_currentUser == null) {
+                          throw Exception("Mtumiaji hajasajiliwa.");
+                        }
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(_currentUser!.uid)
+                            .update({'username': usernameController.text});
+
                         if (!mounted) return;
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(
-                            result['message'] ?? 'Username imebadilishwa!',
+                            'Username imebadilishwa!',
                             style: GoogleFonts.poppins(),
                           ),
                           backgroundColor: Colors.green,
                         ));
-                        _loadProfile();
+                        _loadProfile(); // Refresh profile data
                       } catch (e) {
                         setDialogState(() => isLoading = false);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -266,7 +302,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await ApiService.deleteToken();
+              await FirebaseAuth.instance.signOut();
               if (!mounted) return;
               Navigator.pushAndRemoveUntil(
                 context,
@@ -421,7 +457,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
 
     final fullName = _profileData?['fullName'] ?? 'Admin';
     final username = _profileData?['username'] ?? '';
-    final email = _profileData?['email'] ?? '';
+    final email = _currentUser?.email ?? _profileData?['email'] ?? '';
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,

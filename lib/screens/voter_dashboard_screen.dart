@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 import 'voting_screen.dart';
 import 'results_screen.dart';
@@ -32,14 +33,16 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
         _isLoading = true;
         _error = null;
       });
-      final data = await ApiService.getDashboard();
+      final data = await _fetchDashboardData();
       setState(() {
         _dashboardData = data;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _error = 'Imeshindwa kupakia data. Angalia connection yako.';
+        _error = e is Exception
+            ? e.toString()
+            : 'Imeshindwa kupakia data. Angalia connection yako.';
         _isLoading = false;
       });
     }
@@ -59,7 +62,7 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await ApiService.deleteToken();
+              await FirebaseAuth.instance.signOut();
               if (!mounted) return;
               Navigator.pushAndRemoveUntil(
                 context,
@@ -76,6 +79,74 @@ class _VoterDashboardScreenState extends State<VoterDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> _fetchDashboardData() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null || currentUser.email == null) {
+      throw Exception('Mwanzilishi hajalogini. Ingia tena.');
+    }
+
+    final admissionNumber = currentUser.email!.split('@').first;
+    final voterRef = FirebaseFirestore.instance.collection('voters').doc(admissionNumber);
+    final voterSnapshot = await voterRef.get();
+    if (!voterSnapshot.exists) {
+      throw Exception('Mpiga kura hakupatikana katika mfumo wetu.');
+    }
+
+    final userData = voterSnapshot.data() ?? {};
+    final user = {
+      'fullName': userData['fullName'] ?? currentUser.displayName ?? '',
+      'admissionNumber': userData['admissionNumber'] ?? admissionNumber,
+      'email': userData['email'] ?? currentUser.email,
+      'username': userData['username'] ?? admissionNumber,
+    };
+
+    final electionSnapshot = await FirebaseFirestore.instance
+        .collection('elections')
+        .orderBy('votingOpen', descending: true)
+        .limit(1)
+        .get();
+
+    Map<String, dynamic>? election;
+    if (electionSnapshot.docs.isNotEmpty) {
+      election = {'id': electionSnapshot.docs.first.id, ...electionSnapshot.docs.first.data()};
+    }
+
+    if (election == null) {
+      final latestElectionSnapshot = await FirebaseFirestore.instance
+          .collection('elections')
+          .orderBy('startTime', descending: true)
+          .limit(1)
+          .get();
+      if (latestElectionSnapshot.docs.isNotEmpty) {
+        election = {'id': latestElectionSnapshot.docs.first.id, ...latestElectionSnapshot.docs.first.data()};
+      }
+    }
+
+    final electionId = election?['electionId']?.toString() ?? election?['id']?.toString();
+    final isVotingOpen = election?['votingOpen'] == true;
+
+    final ticketsSnapshot = await FirebaseFirestore.instance.collection('tickets').get();
+    final tickets = ticketsSnapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+
+    bool hasVoted = false;
+    if (electionId != null && currentUser.uid.isNotEmpty) {
+      final voteDoc = await FirebaseFirestore.instance
+          .collection('election_votes')
+          .doc('${electionId}_${currentUser.uid}')
+          .get();
+      hasVoted = voteDoc.exists;
+    }
+
+    return {
+      'user': user,
+      'election': election,
+      'mostRecentElection': election,
+      'isVotingOpen': isVotingOpen,
+      'hasVoted': hasVoted,
+      'tickets': tickets,
+    };
   }
 
   Widget _buildHomeTab() {

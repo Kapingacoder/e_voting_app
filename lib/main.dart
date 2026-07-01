@@ -6,7 +6,13 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/voter_dashboard_screen.dart';
-import 'services/api_service.dart';
+import 'screens/admin_dashboard_screen.dart';
+import 'screens/setup_account_security_screen.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'services/user_security_service.dart';
+import 'services/firebase_auth_service.dart';
+
 
 // Local notifications instance
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -145,12 +151,12 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _getFCMToken() async {
+    // We keep retrieving the FCM token for notifications; backend persistence
+    // was removed to make the app rely entirely on FirebaseAuth session.
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null) {
         debugPrint('FCM Token: $token');
-        // Hifadhi token kwa backend
-        await ApiService.saveFCMToken(token);
       }
     } catch (e) {
       debugPrint('FCM Token error: $e');
@@ -170,18 +176,50 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkLogin() async {
-    final token = await ApiService.getToken();
+    // Rely on FirebaseAuth session (not backend JWT).
+    final user = FirebaseAuth.instance.currentUser;
     if (!mounted) return;
-    if (token != null) {
+
+    if (user == null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-            builder: (_) => const VoterDashboardScreen()),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      return;
+    }
+
+    await UserSecurityService.ensureCurrentUserRecordExists();
+    final isFirstLogin = await UserSecurityService.isFirstLogin();
+    if (!mounted) return;
+
+    if (isFirstLogin) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SetupAccountSecurityScreen()),
+      );
+      return;
+    }
+
+    // Bypass for local testing: Force admin role for 'admin@test.com'
+    if (user.email == 'admin@test.com') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+      );
+      return;
+    }
+
+    final role = await FirebaseAuthService.getCurrentRole();
+
+    if (role == 'admin') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
       );
     } else {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const VoterDashboardScreen()),
       );
     }
   }
