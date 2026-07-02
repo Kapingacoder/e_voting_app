@@ -46,6 +46,7 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
     final nameController = TextEditingController(text: ticket?.data()['name'] as String? ?? '');
     final descController = TextEditingController(text: ticket?.data()['description'] as String? ?? '');
     final candidateNameController = TextEditingController(text: ticket?.data()['candidateName'] as String? ?? '');
+    final candidatePositionController = TextEditingController(text: ticket?.data()['candidatePosition'] as String? ?? '');
     final candidatePartyController = TextEditingController(text: ticket?.data()['candidateParty'] as String? ?? '');
     final candidatePhotoController = TextEditingController(text: ticket?.data()['candidatePhotoUrl'] as String? ?? '');
     final presidentNameController = TextEditingController(text: ticket?.data()['presidentName'] as String? ?? '');
@@ -86,6 +87,8 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                 if (positionType == 'single') ...[
                   _sectionTitle('Mgombea'),
                   _dialogTextField(candidateNameController, 'Jina la Mgombea *', Icons.person),
+                  const SizedBox(height: 8),
+                  _dialogTextField(candidatePositionController, 'Cheo', Icons.badge),
                   const SizedBox(height: 8),
                   _dialogTextField(candidatePartyController, 'Chama / Group', Icons.groups),
                   const SizedBox(height: 8),
@@ -148,6 +151,7 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                       if (positionType == 'single') {
                         entryData.addAll({
                           'candidateName': candidateNameController.text.trim(),
+                          'candidatePosition': candidatePositionController.text.trim(),
                           'candidateParty': candidatePartyController.text.trim(),
                           'candidatePhotoUrl': candidatePhotoController.text.trim(),
                         });
@@ -173,6 +177,7 @@ class _AdminCandidatesScreenState extends State<AdminCandidatesScreen> {
                         if (isEdit) {
                           entryData.addAll({
                             'candidateName': FieldValue.delete(),
+                            'candidatePosition': FieldValue.delete(),
                             'candidateParty': FieldValue.delete(),
                             'candidatePhotoUrl': FieldValue.delete(),
                           });

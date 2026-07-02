@@ -39,6 +39,12 @@ class _SetupAccountSecurityScreenState extends State<SetupAccountSecurityScreen>
     'What is the name of your first pet?',
     'What was your favorite book?',
     'What city were you born in?',
+    'What is your mother’s maiden name?',
+    'What was the name of your first teacher?',
+    'What was the make of your first car?',
+    'What is the name of your favorite childhood friend?',
+    'What was your first job?',
+    'What is your favorite family vacation spot?',
   ];
 
   @override
@@ -242,200 +248,341 @@ class _SetupAccountSecurityScreenState extends State<SetupAccountSecurityScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: const Color(0xFFF4F7FF),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
-        title: Text(
-          'Setup Account Security',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: const SizedBox.shrink(),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Tunaomba uweke usalama wa akaunti yako ili kuendelea.',
-                style: GoogleFonts.poppins(
-                  color: Colors.white70,
-                  fontSize: 14,
+        child: Stack(
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1565C0), Color(0xFF4C7DDB)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 220,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF1565C0), Color(0xFF4C7DDB)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(32),
+                    bottomRight: Radius.circular(32),
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    Text('Badilisha Password',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        )),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _newPasswordController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'New Password',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+              ),
+            ),
+            SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withOpacity(0.18)),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _confirmPasswordController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'Confirm Password',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    Text('Security Question',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        )),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: _selectedQuestion,
-                      items: _questions
-                          .map((q) => DropdownMenuItem(
-                                value: q,
-                                child: Text(q),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedQuestion = v),
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    TextField(
-                      controller: _answerController,
-                      decoration: InputDecoration(
-                        labelText: 'Security Answer',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    Text('CAPTCHA',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        )),
-                    const SizedBox(height: 10),
-
-                    Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Checkbox(
-                          value: _captchaChecked,
-                          onChanged: (v) => setState(() => _captchaChecked = v ?? false),
+                        Text(
+                          'Setup Account Security',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        Expanded(
-                          child: Text(
-                            "I’m not a robot",
-                            style: GoogleFonts.poppins(fontSize: 13),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Usalama wa akaunti yako ndio nguzo ya usalama wa uchaguzi. Weka password mpya, swali la siri, na thibitisha CAPTCHA.',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            _securityStep('1', 'Password'),
+                            const SizedBox(width: 10),
+                            _securityStep('2', 'Swali la siri'),
+                            const SizedBox(width: 10),
+                            _securityStep('3', 'CAPTCHA'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '1. Badilisha Password',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF203354),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _buildTextField(
+                          controller: _newPasswordController,
+                          label: 'Password Mpya',
+                          hint: 'Weka password mpya yenye herufi 6+',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildTextField(
+                          controller: _confirmPasswordController,
+                          label: 'Thibitisha Password',
+                          hint: 'Andika password tena',
+                        ),
+                        const SizedBox(height: 22),
+                        Text(
+                          '2. Chagua Swali la Siri',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF203354),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<String>(
+                          value: _selectedQuestion,
+                          items: _questions
+                              .map((q) => DropdownMenuItem(
+                                    value: q,
+                                    child: Text(
+                                      q,
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
+                                  ))
+                              .toList(),
+                          onChanged: (v) => setState(() => _selectedQuestion = v),
+                          decoration: InputDecoration(
+                            hintText: 'Chagua swali la siri',
+                            filled: true,
+                            fillColor: const Color(0xFFF4F7FF),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _buildTextField(
+                          controller: _answerController,
+                          label: 'Jibu la Siri',
+                          hint: 'Andika jibu lako la siri',
+                        ),
+                        const SizedBox(height: 22),
+                        Text(
+                          '3. Thibitisha CAPTCHA',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF203354),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _captchaChecked,
+                              onChanged: (v) => setState(() => _captchaChecked = v ?? false),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              activeColor: const Color(0xFF1565C0),
+                            ),
+                            Expanded(
+                              child: Text(
+                                'Mimi si robot',
+                                style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF4A5368)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF4F7FF),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Hesabu: $_a + $_b = ?',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF203354),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _captchaController,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'Jibu',
+                                  hintText: 'Andika jibu hapa',
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide(color: Colors.grey.shade300),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: OutlinedButton.icon(
+                                  onPressed: _refreshCaptcha,
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: Text(
+                                    'Panga upya CAPTCHA',
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF1565C0),
+                                    side: BorderSide(color: Colors.blue.shade100),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1565C0),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: _isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                : Text(
+                                    'Hifadhi Usalama',
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                    const SizedBox(height: 6),
-
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Hesabu: $_a + $_b = ?',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: _captchaController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: 'Jibu',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 42,
-                            child: OutlinedButton.icon(
-                              onPressed: _refreshCaptcha,
-                              icon: const Icon(Icons.refresh),
-                              label: Text(
-                                'Refresh',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1565C0),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : Text(
-                                'Hifadhi & Endelea',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
+  Widget _securityStep(String step, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                step,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1565C0),
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    bool obscureText = true,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        filled: true,
+        fillColor: const Color(0xFFF4F7FF),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
       ),
     );
